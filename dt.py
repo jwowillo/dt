@@ -10,27 +10,58 @@ import random
 import time
 
 
-def evaluate(dt, test_name):
+def correct_ratio(dt, data):
     """
-    evaluate the DecisionTree's accuracy on test-data in test_name.
+    correct_ratio is 100 * the number of correctly classified instances over the
+    total instances as a percentage.
+    """
+    return 100*accuracy(dt, data)
 
-    Accuracy is reported as 100*(# classified correctly)/(total).
+
+def kappa_statistic(dt, data):
+    """
+    kappa_statistic is (accuracy - rand) / (1 - rand) where rand is the accuracy
+    of a classifier that randomly guesses and accuracy is the true accuracy of
+    the classifier.
+    """
+    rand = accuracy_random(data)
+    return (accuracy(dt, data) - rand)/(1 - rand)
+
+
+def accuracy(dt, data):
+    """
+    accuracy is the number of correctly classified instances over the total
+    instances.
     """
     correct = 0
     total = 0
-    with open(test_name) as f:
-        for row in f:
-            row = [col.strip() for col in row.split(',')]
-            point, actual = row[:-1], row[-1]
-            total += 1
-            try:
-                if dt.classify(point) == actual:
-                    correct += 1
-            except ValueError:
-                # Didn't know how to classify the instance. Means the training
-                # data didn't fully cover the attribtue space.
-                pass
-    return 100*correct/total
+    for row in data:
+        point, actual = row[:-1], row[-1]
+        total += 1
+        try:
+            if dt.classify(point) == actual:
+                correct += 1
+        except ValueError:
+            # Didn't know how to classify the instance. Means the training
+            # data didn't fully cover the attribtue space.
+            pass
+    return correct/total
+
+
+def accuracy_random(data):
+    """
+    accuracy_random is the accuracy of a classifier randomly guessing the labels
+    of instances.
+    """
+    possible = list(set(list(zip(*data))[-1]))
+    correct = 0
+    total = 0
+    for row in data:
+        actual = row[-1]
+        total += 1
+        if random.choice(possible) == row[-1]:
+            correct += 1
+    return correct/total
 
 
 def info(data):
@@ -189,30 +220,35 @@ def split(data_name, train_ratio):
     return data_name + '.train', data_name + '.test'
 
 
-def run(data, training_ratio):
-    """
-    run the sample on the provided data file with the provided training ratio.
-
-    Prints run-times and phases and returns the evaluation score.
-    """
-    train, test = split(data, training_ratio)
-    print('Starting Training')
-    now = time.time()
-    dt = DecisionTree(train)
-    print('Finished Training in {} seconds'.format(time.time()-now))
-    print('Starting Evaluation')
-    now = time.time()
-    score = evaluate(dt, test)
-    print('Finished Evaluating in {} seconds'.format(time.time()-now))
-    return score
-
-
 if __name__ == '__main__':
     DATA = 'car.data'
     TRAINING_RATIO = 0.75
     random.seed(time.time())
 
-    for i in range(2):
-        score = run(DATA, TRAINING_RATIO)
-        print('Evaluation {} (100*correct/total): {}'.format(i+1, score))
-        print()
+    train, test = split(DATA, TRAINING_RATIO)
+    print('Starting Training')
+    now = time.time()
+    dt = DecisionTree(train)
+    print('Finished Training in {} seconds'.format(time.time()-now))
+
+    print()
+
+    data = []
+    with open(test) as f:
+        for row in f:
+            data.append([col.strip() for col in row.split(',')])
+
+    print('Starting Correct Ratio Evaluation')
+    now = time.time()
+    score = correct_ratio(dt, data)
+    print('Finished Evaluating in {} seconds'.format(time.time()-now))
+    print('Correct Ratio Evaluation (100*correct/total):', score)
+
+    print()
+
+    print('Starting Kappa Statistic Evaluation')
+    now = time.time()
+    score = kappa_statistic(dt, data)
+    print('Finished Evaluating in {} seconds'.format(time.time()-now))
+    print('Kappa Statistic Evaluation ((accuracy - random) / (1 - accuracy)):', score)
+
